@@ -69,6 +69,45 @@ bool Triangulation::triangulation(
         vec3 &t    /// output: recovered translation of 2nd camera (used for updating the viewer and visual inspection)
 ) const
 {
+    // ******************** OUR CODE *********************
+    // STEP 0 - CHECK IF POINTS ARE VALID
+    // x,y,w coords, w is set to 1.0
+    if (points_0.size() < 8 || points_1.size() < 8 || points_0.size() != points_1.size()) {
+        std::cout << "\t" << "Input is valid" << std::endl;
+    }
+    else {
+        std::cout << "\t" << "Input is not valid" << std::endl;
+        return false;
+    }
+    // --------- ESTIMATION OF FUNDAMENTAL MATRIX F ------------
+    // STEP 1.0 - NORMALIZATION
+    
+    // STEP 1.1 - LINEAR SOLUTION USING SVD (make the recovered F to scale, last element 1.0
+
+    // STEP 1.2 - CONSTRAINT ENFORCEMENT (Based on SVD, Find the closest rank-2 matrix)
+
+    // STEP 1.3 - DENORMALIZATION
+
+    // --------- RECOVER RELATIVE POSE (R and t) FROM MATRIX F ------------
+
+    // STEP 2.0 - FIND THE 4 CANDIDATE RELATIVE POSES (based on SVD)
+
+    // STEP 2.1 - DETERMINE THE CORRECT RELATIVE POSE
+
+    // determinant (R) = 1.0 (within a tiny threshold due to floating-point precision)
+    // most (in theory it is ‘all’ but not in practice due to noise) estimated 3D points
+    // are in front of the both cameras(i.e., z values w.r.t.camera is positive)
+
+    // --------- DETERMINE THE 3D COORDINATES ------------
+
+    // STEP 3.0 - COMPUTE PROJECTION MATRIX FROM K, R and t
+
+    // STEP 3.1 - COMPUTE THE 3D POINT USING THE LINEAR METHOD (SVD)
+
+    // OPTIONAL - NON-LINEAR LEAST-SQUARES REFINEMENT OF THE 3D POINT COMPUTED FROM THE LINEAR METHOD
+
+    // STEP 3.2 - TRIANGULATE ALL CORRESPONDING IMAGE POINTS
+
     /// NOTE: there might be multiple workflows for reconstructing 3D geometry from corresponding image points.
     ///       This assignment uses the commonly used one explained in our lecture.
     ///       It is advised to define a function for each sub-task. This way you have a clean and well-structured
