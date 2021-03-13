@@ -73,12 +73,13 @@ bool Triangulation::triangulation(
     // STEP 0 - CHECK IF POINTS ARE VALID
     // x,y,w coords, w is set to 1.0
     if (points_0.size() < 8 || points_1.size() < 8 || points_0.size() != points_1.size()) {
-        std::cout << "\t" << "Input is valid" << std::endl;
-    }
-    else {
         std::cout << "\t" << "Input is not valid" << std::endl;
         return false;
     }
+    else {
+        std::cout << "\t" << "Input is valid" << std::endl;
+    }
+        
     // --------- ESTIMATION OF FUNDAMENTAL MATRIX F ------------
     // STEP 1.0 - NORMALIZATION
     
