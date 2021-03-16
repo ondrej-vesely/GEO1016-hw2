@@ -98,6 +98,14 @@ void normalise(std::vector<vec3>&points, mat3 &ST){
     }
 }
 
+void generate_w(std::vector<vec3>& points_0n, std::vector<vec3>& points_1n, Matrix<float> &W){
+    for (int i = 0; i < points_0n.size(); ++i) {
+        W.set_row({ points_0n[i][0] * points_1n[i][0], points_0n[i][1] * points_1n[i][0], points_1n[0],
+            points_0n[i][0] * points_1n[i][1], points_1n[i][1], points_0n[i][0], points_0n[i][1], 1 }, i);
+    }
+}
+
+
 /**
  * TODO: Finish this function for reconstructing 3D geometry from corresponding image points.
  * @return True on success, otherwise false. On success, the reconstructed 3D points must be written to 'points_3d'.
@@ -143,6 +151,14 @@ bool Triangulation::triangulation(
     std::cout << "p_1n after" << p_1n << std::endl;
 
     // STEP 1.1 - LINEAR SOLUTION USING SVD (make the recovered F to scale, last element 1.0
+
+    // generate W matrix
+    Matrix<float> W(p_0n.size(), 9, 0.0);
+
+    // call function generate_w here (which is void but´changes the values of W)
+
+    
+
 
     // STEP 1.2 - CONSTRAINT ENFORCEMENT (Based on SVD, Find the closest rank-2 matrix)
 
