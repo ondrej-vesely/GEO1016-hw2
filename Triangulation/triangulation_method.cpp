@@ -54,6 +54,49 @@ Matrix<double> to_Matrix(const mat &M) {
     return result;
 }
 
+void normalise(std::vector<vec3>&points, mat3 &ST){
+
+    // find centroid coordinate
+    float centroid_x, centroid_y;
+
+    centroid_x = 0;
+    centroid_y = 0;
+
+    for (int i = 0; i < points.size(); ++i) {
+        centroid_x += points[i][0] / points[i][2];
+        centroid_y += points[i][1] / points[i][2];
+    }
+
+    centroid_x = centroid_x / points.size();
+    centroid_y= centroid_y / points.size();
+
+    // create translation matrix
+    mat3 T(1.0f);
+    T.set_col(2, vec3(-centroid_x, -centroid_y, 1));
+
+    // find scaling factors
+    // get average distance of the points to the origin
+
+    float dist = 0;
+
+    for (int i = 0; i < points.size(); ++i) {
+        dist += points[i].length();
+    }
+    dist = dist / points.size();        //average distance
+
+    // get scaling factor (dist * s = sqrt(2))
+    float s = sqrt(2) / dist;
+
+    // Scaling Matrix S
+    mat3 S = mat3::scale(s, s, 1);
+
+    ST = S * T;
+    
+    // change input vector to its normalised vesrion
+    for (int i = 0; i < points.size(); ++i) {
+        points[i] = ST * points[i];
+    }
+}
 
 /**
  * TODO: Finish this function for reconstructing 3D geometry from corresponding image points.
@@ -69,6 +112,62 @@ bool Triangulation::triangulation(
         vec3 &t                                 /// output: recovered translation of 2nd camera (used for updating the viewer and visual inspection)
 ) const
 {
+    // ******************** OUR CODE *********************
+    // STEP 0 - CHECK IF POINTS ARE VALID
+    // x,y,w coords, w is set to 1.0
+    if (points_0.size() < 8 || points_1.size() < 8 || points_0.size() != points_1.size()) {
+        std::cout << "\t" << "Input is not valid" << std::endl;
+        return false;
+    }
+    else {
+        std::cout << "\t" << "Input is valid" << std::endl;
+    }
+        
+    // --------- ESTIMATION OF FUNDAMENTAL MATRIX F ------------
+    // STEP 1.0 - NORMALIZATION
+    
+    mat3 ST(0.0);               // for first camera - combined T and S for normalisation 
+    mat3 ST_prime(0.0);         // for second camera
+    
+    std::vector<vec3> p_0n = points_0;
+    std::vector<vec3> p_1n = points_1;
+
+    // call normalise function defined above
+    normalise(p_0n, ST);
+    normalise(p_1n, ST_prime);
+
+    std::cout << "ST matrix after" << ST << std::endl;
+    std::cout << "ST_prime matrix after" << ST_prime << std::endl;
+
+    std::cout << "p_0n after" << p_0n << std::endl;
+    std::cout << "p_1n after" << p_1n << std::endl;
+
+    // STEP 1.1 - LINEAR SOLUTION USING SVD (make the recovered F to scale, last element 1.0
+
+    // STEP 1.2 - CONSTRAINT ENFORCEMENT (Based on SVD, Find the closest rank-2 matrix)
+
+    // STEP 1.3 - DENORMALIZATION
+
+    // --------- RECOVER RELATIVE POSE (R and t) FROM MATRIX F ------------
+
+    // STEP 2.0 - FIND THE 4 CANDIDATE RELATIVE POSES (based on SVD)
+
+    // STEP 2.1 - DETERMINE THE CORRECT RELATIVE POSE
+
+    // determinant (R) = 1.0 (within a tiny threshold due to floating-point precision)
+    // most (in theory it is ‘all’ but not in practice due to noise) estimated 3D points
+    // are in front of the both cameras(i.e., z values w.r.t.camera is positive)
+
+    // --------- DETERMINE THE 3D COORDINATES ------------
+
+    // STEP 3.0 - COMPUTE PROJECTION MATRIX FROM K, R and t
+
+    // STEP 3.1 - COMPUTE THE 3D POINT USING THE LINEAR METHOD (SVD)
+
+    // OPTIONAL - NON-LINEAR LEAST-SQUARES REFINEMENT OF THE 3D POINT COMPUTED FROM THE LINEAR METHOD
+
+    // STEP 3.2 - TRIANGULATE ALL CORRESPONDING IMAGE POINTS
+
     /// NOTE: there might be multiple workflows for reconstructing 3D geometry from corresponding image points.
     ///       This assignment uses the commonly used one explained in our lecture.
     ///       It is advised to define a function for each sub-task. This way you have a clean and well-structured
