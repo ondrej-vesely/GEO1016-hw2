@@ -74,8 +74,6 @@ void normalise(std::vector<vec3>&points, mat3 &ST){
     mat3 T(1.0f);
     T.set_col(2, vec3(-centroid_x, -centroid_y, 1));
 
-    std::cout << "T matrix " << T << std::endl; 
-
     // find scaling factors
     // get average distance of the points to the origin
 
@@ -87,22 +85,14 @@ void normalise(std::vector<vec3>&points, mat3 &ST){
     dist = dist / points.size();        //average distance
 
     // get scaling factor (dist * s = sqrt(2))
-
     float s = sqrt(2) / dist;
 
-    std::cout << "scaling factor " << s << std::endl;
-
     // Scaling Matrix S
-
     mat3 S = mat3::scale(s, s, 1);
 
-    std::cout << "S matrix " << S << std::endl;
-
     ST = S * T;
-    std::cout << "STmatrix " << S << std::endl;
-
+    
     // change input vector to its normalised vesrion
-
     for (int i = 0; i < points.size(); ++i) {
         points[i] = ST * points[i];
     }
@@ -138,16 +128,9 @@ bool Triangulation::triangulation(
     
     mat3 ST(0.0);               // for first camera - combined T and S for normalisation 
     mat3 ST_prime(0.0);         // for second camera
-
-    std::cout << "ST matrix before" <<ST << std::endl;
-    std::cout << "ST_prime matrix before" << ST_prime << std::endl;
-
     
     std::vector<vec3> p_0n = points_0;
-    std::vector<vec3> p_1n = points_1;    
-
-    std::cout << "p_0n before" << p_0n << std::endl;
-    std::cout << "p_1n" << p_1n << std::endl;
+    std::vector<vec3> p_1n = points_1;
 
     // call normalise function defined above
     normalise(p_0n, ST);
