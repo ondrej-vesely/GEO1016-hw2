@@ -60,13 +60,13 @@ Matrix<double> to_Matrix(const mat &M) {
  * @return True on success, otherwise false. On success, the reconstructed 3D points must be written to 'points_3d'.
  */
 bool Triangulation::triangulation(
-        float fx, float fy,     /// input: the focal lengths (same for both cameras)
-        float cx, float cy,     /// input: the principal point (same for both cameras)
-        const std::vector<vec3> &points_0,    /// input: image points (in homogenous coordinates) in the 1st image.
-        const std::vector<vec3> &points_1,    /// input: image points (in homogenous coordinates) in the 2nd image.
-        std::vector<vec3> &points_3d,         /// output: reconstructed 3D points
-        mat3 &R,   /// output: recovered rotation of 2nd camera (used for updating the viewer and visual inspection)
-        vec3 &t    /// output: recovered translation of 2nd camera (used for updating the viewer and visual inspection)
+        float fx, float fy,                     /// input: the focal lengths (same for both cameras)
+        float cx, float cy,                     /// input: the principal point (same for both cameras)
+        const std::vector<vec3> &points_0,      /// input: image points (in homogenous coordinates) in the 1st image.
+        const std::vector<vec3> &points_1,      /// input: image points (in homogenous coordinates) in the 2nd image.
+        std::vector<vec3> &points_3d,           /// output: reconstructed 3D points
+        mat3 &R,                                /// output: recovered rotation of 2nd camera (used for updating the viewer and visual inspection)
+        vec3 &t                                 /// output: recovered translation of 2nd camera (used for updating the viewer and visual inspection)
 ) const
 {
     /// NOTE: there might be multiple workflows for reconstructing 3D geometry from corresponding image points.
