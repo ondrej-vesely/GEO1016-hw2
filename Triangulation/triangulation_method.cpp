@@ -98,14 +98,50 @@ void normalise(std::vector<vec3>& points, mat3& ST) {
     }
 }
 
-Matrix<double> generate_w(std::vector<vec3>& points_0n, std::vector<vec3>& points_1n) {
+Matrix<double> generate_f(std::vector<vec3>& points_0n, std::vector<vec3>& points_1n) {
     Matrix<double> W(points_0n.size(), 9, 0.0);
     for (int i = 0; i < points_0n.size(); ++i) {
         W.set_row({ points_0n[i][0] * points_1n[i][0], points_0n[i][1] * points_1n[i][0], points_1n[i][0],
                     points_0n[i][0] * points_1n[i][1], points_0n[i][1] * points_1n[i][1],
                     points_1n[i][1], points_0n[i][0], points_0n[i][1], 1 }, i);
     }
-    return W;
+    // decompose W with SVD
+    int m = W.rows();
+    int n = W.cols();
+    Matrix<double> U_W(m, m, 0.0);
+    Matrix<double> S_W(m, n, 0.0);
+    Matrix<double> V_W(n, n, 0.0);
+    svd_decompose(W, U_W, S_W, V_W);
+
+    // initialise and fill F matrix (F is a 3x3 matrix)
+    Matrix<double> F(3, 3, 0.0);
+
+    int k = 0;
+    for (int i = 0; i < 3; i++) {
+        for (int j = 0; j < 3; j++) {
+            F(i, j) = V_W(k, 8);
+            k++;
+        }
+    }
+    return F;
+}
+
+
+/// To determine how many points are in front of camera
+/// for given relative camera pose
+int points_in_front(const std::vector<vec3>& points_0, const mat3& R, const vec3& t, int& result)
+{
+    int found = 0;
+    for (vec3 pt : points_0) {
+
+        // do some camera magic
+        // to get point into camera coordinate system
+        // and figure out if points Z coord in camera space is positive
+
+        if (pt[2] > 0) { found++; }
+    }
+    result = found;
+    return found;
 }
 
 
@@ -128,11 +164,11 @@ bool Triangulation::triangulation(
     // STEP 0.0 - CHECK IF INPUT POINTS ARE VALID
 
     if (points_0.size() < 8 || points_0.size() != points_1.size()) {
-        std::cout << "\t" << "Input is not valid" << std::endl;
+        std::cout << "\n" << "Input is not valid \n" << std::endl;
         return false;
     }
     else {
-        std::cout << "\t" << "Input is valid" << std::endl;
+        std::cout << "\n" << "Input is valid \n" << std::endl;
     }
 
 
@@ -153,28 +189,8 @@ bool Triangulation::triangulation(
 
     // STEP 1.1 - LINEAR SOLUTION USING SVD ---------------------
 
-    // call function to generate W matrix from input points
-    Matrix<double> W = generate_w(p_0n, p_1n);
-
-    // decompose W with SVD
-    int m = W.rows();
-    int n = W.cols();
-    Matrix<double> U_W(m, m, 0.0);
-    Matrix<double> S_W(m, n, 0.0);
-    Matrix<double> V_W(n, n, 0.0);
-    svd_decompose(W, U_W, S_W, V_W);
-
-    // initialise and fill F matrix (F is a 3x3 matrix)
-    Matrix<double> F(3, 3, 0.0);
-
-    int k = 0;
-    for (int i = 0; i < 3; i++) {
-        for (int j = 0; j < 3; j++) {
-            F(i, j) = V_W(k, 8);
-            k++;
-        }
-    }
-
+    // call function to generate F matrix from input points
+    Matrix<double> F = generate_f(p_0n, p_1n);
 
     // STEP 1.2 - CONSTRAINT ENFORCEMENT (Based on SVD, Find the closest rank-2 matrix)
 
@@ -205,7 +221,7 @@ bool Triangulation::triangulation(
     }
 
     // STEP 1.x - VERIFY --------------------------------------------
-    
+
     /*
     std::cout << "ST matrix after" << ST << std::endl;
     std::cout << "ST_prime matrix after" << ST_prime << std::endl;
@@ -226,10 +242,9 @@ bool Triangulation::triangulation(
     // float fx, float fy,                     /// input: the focal lengths (same for both cameras)
     // float cx, float cy,                     /// input: the principal point (same for both cameras)
 
-    mat3 K_(fx, 0,  cx,
-            0,  fy, cy,
-            0,  0,  1 );
-
+    mat3 K_(fx, 0, cx,
+        0, fy, cy,
+        0, 0, 1);
     Matrix<double> K = to_Matrix(K_);
 
     // STEP 2.1 - CALCULATE E MATRIX --------------------------------------
@@ -237,16 +252,58 @@ bool Triangulation::triangulation(
     // Essential matrix
     // E = K' * F * K
 
-    Matrix<double> E = K * F_den * K;
+    Matrix<double> E = K * F_const * K;
 
     // STEP 2.2 - FIND THE 4 CANDIDATE RELATIVE POSES (based on SVD) ------
 
+    // SVD decompositon of E
     Matrix<double> U_E(3, 3, 0.0);
     Matrix<double> S_E(3, 3, 0.0);
     Matrix<double> V_E(3, 3, 0.0);
     svd_decompose(E, U_E, S_E, V_E);
 
+    // construct W matrix
+    mat3 W_(0, -1,  0,
+            1,  0,  0,
+            0,  0,  1);
+    Matrix<double> W = to_Matrix(W_);
+
+    // Calculate relative poses
+    // R1 = (det U * W * Vt) * U * W * Vt
+    // R2 = (det U * Wt * Vt) * U * Wt * Vt
+    Matrix<double> R1_ = determinant(U_E * W * V_E.transpose()) * U_E * W * V_E.transpose();
+    Matrix<double> R2_ = determinant(U_E * W.transpose() * V_E.transpose()) * U_E * W.transpose() * V_E.transpose();
+    // t1,2 = +- U3
+    Matrix<double> t1_(1, 3, U_E.get_column(2).data());
+    Matrix<double> t2_ = t1_ * -1;
+
+    std::cout << "\n"
+        "Determinant R1: " << determinant(R1_) << " \n"
+        "Determinant R2: " << determinant(R2_) << " \n";
+
+
     // STEP 2.x - DETERMINE THE CORRECT RELATIVE POSE ---------------------
+
+    // convert to <mat> and <vec>
+    const mat3 R1 = to_mat3(R1_);
+    const mat3 R2 = to_mat3(R2_);
+    const vec3 t1 = vec3(t1_(0, 0), t1_(0, 1), t1_(0, 2));
+    const vec3 t2 = vec3(t2_(0, 0), t2_(0, 1), t2_(0, 2));
+
+    // find pair with highest number of points in front of both cameras
+    int max = 0;
+    int last_result = 0;
+    if (points_in_front(points_0, R1, t1, last_result) > max) { R = R1; t = t1; max = last_result; }
+    if (points_in_front(points_0, R1, t2, last_result) > max) { R = R1; t = t2; max = last_result; }
+    if (points_in_front(points_0, R2, t1, last_result) > max) { R = R2; t = t1; max = last_result; }
+    if (points_in_front(points_0, R2, t2, last_result) > max) { R = R2; t = t2; max = last_result; }
+
+    // !!!!!!!!!!!
+    // THE METHOD TO COUNT THE POINTS IN FRONT OF CAMERA IS NOT PROPERLY IMPLEMENTED YET
+    // !!!!!!!!!!!
+
+
+
 
     // determinant (R) = 1.0 (within a tiny threshold due to floating-point precision)
     // most (in theory it is 'all' but not in practice due to noise) estimated 3D points
@@ -268,8 +325,9 @@ bool Triangulation::triangulation(
 
 
     return points_3d.size() > 0;
+}
 
-
+void examples() {
     /// NOTE: there might be multiple workflows for reconstructing 3D geometry from corresponding image points.
     ///       This assignment uses the commonly used one explained in our lecture.
     ///       It is advised to define a function for each sub-task. This way you have a clean and well-structured
@@ -366,7 +424,7 @@ bool Triangulation::triangulation(
     Matrix<double> W_(2, 3, 0.0); // all entries initialized to 0.0.
 
     /// set its first row by a 3D vector (1.1, 2.2, 3.3)
-    W_.set_row({ 1.1, 2.2, 3.3 }, 0);   // here "{ 1.1, 2.2, 3.3 }" is of type 'std::vector<double>'
+   W_.set_row({ 1.1, 2.2, 3.3 }, 0);   // here "{ 1.1, 2.2, 3.3 }" is of type 'std::vector<double>'
 
     /// get the last column of a matrix
     std::vector<double> last_column_ = W_.get_column(W_.cols() - 1);
