@@ -133,7 +133,7 @@ bool Triangulation::triangulation(
         std::cout << "\t" << "Input is valid" << std::endl;
     }
        
-    // ---------              PART 2                ------------
+    // ---------              PART 1                ------------
     // --------- ESTIMATION OF FUNDAMENTAL MATRIX F ------------
     // STEP 1.0 - NORMALIZATION
     
@@ -170,6 +170,8 @@ bool Triangulation::triangulation(
 
     // STEP 1.3 - DENORMALIZATION
 
+
+    // ---------                   PART 2                      ------------
     // --------- RECOVER RELATIVE POSE (R and t) FROM MATRIX F ------------
 
     // STEP 2.0 - FIND THE 4 CANDIDATE RELATIVE POSES (based on SVD)
@@ -190,12 +192,21 @@ bool Triangulation::triangulation(
 
     // STEP 3.2 - TRIANGULATE ALL CORRESPONDING IMAGE POINTS
 
+    
+    
+    
+    
+    
+    return points_3d.size() > 0;
+    
+
     /// NOTE: there might be multiple workflows for reconstructing 3D geometry from corresponding image points.
     ///       This assignment uses the commonly used one explained in our lecture.
     ///       It is advised to define a function for each sub-task. This way you have a clean and well-structured
     ///       implementation, which also makes testing and debugging easier. You can put your other functions above
     ///       triangulation(), or feel free to put them in one or multiple separate files.
 
+    
     std::cout << "\nTODO: I am going to implement the triangulation() function in the following file:" << std::endl
               << "\t    - triangulation_method.cpp\n\n";
 
@@ -223,9 +234,7 @@ bool Triangulation::triangulation(
     /// In 'Triangulation/matrix.h', another templated 'Matrix' type is also provided. This type can have arbitrary
     /// dimensions and their sizes can be specified at run-time (i.e., when executing your program).
     /// Below are a few examples showing some of these data structures and related APIs.
-
-    /*
-
+    
     /// ----------- fixed-size matrices
 
     /// define a 3 by 4 matrix M (you can also define 3 by 4 matrix similarly)
@@ -284,14 +293,14 @@ bool Triangulation::triangulation(
     /// ----------- dynamic-size matrices
 
     /// define a non-fixed size matrix
-    Matrix<double> W(2, 3, 0.0); // all entries initialized to 0.0.
+    Matrix<double> W_(2, 3, 0.0); // all entries initialized to 0.0.
 
     /// set its first row by a 3D vector (1.1, 2.2, 3.3)
-    W.set_row({ 1.1, 2.2, 3.3 }, 0);   // here "{ 1.1, 2.2, 3.3 }" is of type 'std::vector<double>'
+    W_.set_row({ 1.1, 2.2, 3.3 }, 0);   // here "{ 1.1, 2.2, 3.3 }" is of type 'std::vector<double>'
 
     /// get the last column of a matrix
-    std::vector<double> last_column = W.get_column(W.cols() - 1);
-     */
+    std::vector<double> last_column = W_.get_column(W_.cols() - 1);
+    
 
     // TODO: delete all above demo code in the final submission
 
@@ -318,5 +327,4 @@ bool Triangulation::triangulation(
     //          - function not implemented yet;
     //          - input not valid (e.g., not enough points, point numbers don't match);
     //          - encountered failure in any step.
-    return points_3d.size() > 0;
 }
