@@ -82,7 +82,7 @@ void normalise(std::vector<vec3>&points, mat3 &ST){
     for (int i = 0; i < points.size(); ++i) {
         dist += points[i].length();
     }
-    dist = dist / points.size();        //average distance
+    dist = dist / points.size();        // average distance
 
     // get scaling factor (dist * s = sqrt(2))
     float s = sqrt(2) / dist;
@@ -92,7 +92,7 @@ void normalise(std::vector<vec3>&points, mat3 &ST){
 
     ST = S * T;
     
-    // change input vector to its normalised vesrion
+    // change input vector to its normalised version
     for (int i = 0; i < points.size(); ++i) {
         points[i] = ST * points[i];
     }
@@ -121,10 +121,10 @@ bool Triangulation::triangulation(
         vec3 &t                                 /// output: recovered translation of 2nd camera (used for updating the viewer and visual inspection)
 ) const
 {
-    // ******************** OUR CODE *********************
+    // ---------   PART 0   ------------
+    // --------- VALIDATION ------------
+    // STEP 0.0 - CHECK IF INPUT POINTS ARE VALID
 
-    // STEP 0 - CHECK IF POINTS ARE VALID
-    // x,y,w coords, w is set to 1.0
     if (points_0.size() < 8 || points_0.size() != points_1.size()) {
         std::cout << "\t" << "Input is not valid" << std::endl;
         return false;
@@ -132,7 +132,8 @@ bool Triangulation::triangulation(
     else {
         std::cout << "\t" << "Input is valid" << std::endl;
     }
-        
+       
+    // ---------              PART 2                ------------
     // --------- ESTIMATION OF FUNDAMENTAL MATRIX F ------------
     // STEP 1.0 - NORMALIZATION
     
@@ -152,6 +153,7 @@ bool Triangulation::triangulation(
     std::cout << "p_0n after" << p_0n << std::endl;
     std::cout << "p_1n after" << p_1n << std::endl;
 
+    
     // STEP 1.1 - LINEAR SOLUTION USING SVD (make the recovered F to scale, last element 1.0
 
     // initialise W matrix
