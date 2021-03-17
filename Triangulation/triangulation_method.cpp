@@ -182,7 +182,7 @@ bool Triangulation::triangulation(
             k++;
         }
     }
-    std::cout << "F matrix " << F << std::endl;
+    // std::cout << "F matrix " << F << std::endl;
 
 
     // STEP 1.2 - CONSTRAINT ENFORCEMENT (Based on SVD, Find the closest rank-2 matrix)
@@ -195,31 +195,23 @@ bool Triangulation::triangulation(
 
     //std::cout << "S_F matrix " << S_F << std::endl;
 
-    //Set S_F(2,2) = 0
     S_F(2, 2) = 0;
 
     //recompose constrained F with rank(F)=2
     Matrix<double> F_const(3, 3, 0.0);
 
     F_const = U_F * S_F * V_F.transpose();
-    std::cout << "constrained F matrix " << F_const << std::endl;
+    // std::cout << "constrained F matrix " << F_const << std::endl;
     
 
     // STEP 1.3 - DENORMALIZATION
+           
+    Matrix<double> ST_prime_double = to_Matrix(ST_prime);
+    Matrix<double> ST_double = to_Matrix(ST);
 
-    //Initialise F for denormalised coordinates
-    Matrix<double> F_den(3, 3, 0.0);
-
-    Matrix<double> new_ST_prime = to_Matrix(ST_prime);
-    Matrix<double> new_ST = to_Matrix(ST);
-
-    std::cout << "new_ST_prime " << new_ST_prime << std::endl;
-    std::cout << "new_ST " << new_ST << std::endl;
-
-
-    F_den = new_ST_prime.transpose() * F_const * new_ST;
-    std::cout << "nearly done denormalised F matrix " << F_den << std::endl;
-
+    Matrix<double> F_den = ST_prime_double.transpose() * F_const * ST_double;
+        
+    // divide every value by F_den(2,2) in order to eliminate scaling factor
     for (int i = 0; i < 3; ++i) {
         for (int j = 0; j < 3; ++j) {
             F_den(i,j) = F_den(i,j)/F_den(2,2);
