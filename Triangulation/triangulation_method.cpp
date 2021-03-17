@@ -1,4 +1,4 @@
-/**
+ï»¿/**
  * Copyright (C) 2015 by Liangliang Nan (liangliang.nan@gmail.com)
  * https://3d.bk.tudelft.nl/liangliang/
  *
@@ -133,7 +133,7 @@ bool Triangulation::triangulation(
         std::cout << "\t" << "Input is valid" << std::endl;
     }
        
-    // ---------              PART 2                ------------
+    // ---------              PART 1                ------------
     // --------- ESTIMATION OF FUNDAMENTAL MATRIX F ------------
     // STEP 1.0 - NORMALIZATION
     
@@ -235,7 +235,7 @@ bool Triangulation::triangulation(
     // STEP 2.1 - DETERMINE THE CORRECT RELATIVE POSE
 
     // determinant (R) = 1.0 (within a tiny threshold due to floating-point precision)
-    // most (in theory it is ‘all’ but not in practice due to noise) estimated 3D points
+    // most (in theory it is ï¿½allï¿½ but not in practice due to noise) estimated 3D points
     // are in front of the both cameras(i.e., z values w.r.t.camera is positive)
 
     // --------- DETERMINE THE 3D COORDINATES ------------
@@ -248,12 +248,21 @@ bool Triangulation::triangulation(
 
     // STEP 3.2 - TRIANGULATE ALL CORRESPONDING IMAGE POINTS
 
+    
+    
+    
+    
+    
+    return points_3d.size() > 0;
+    
+
     /// NOTE: there might be multiple workflows for reconstructing 3D geometry from corresponding image points.
     ///       This asignment uses the commonly used one explained in our lecture.
     ///       It is advised to define a function for each sub-task. This way you have a clean and well-structured
     ///       implementation, which also makes testing and debugging easier. You can put your other functions above
     ///       triangulation(), or feel free to put them in one or multiple separate files.
 
+    
     std::cout << "\nTODO: I am going to implement the triangulation() function in the following file:" << std::endl
               << "\t    - triangulation_method.cpp\n\n";
 
@@ -281,75 +290,73 @@ bool Triangulation::triangulation(
     /// In 'Triangulation/matrix.h', another templated 'Matrix' type is also provided. This type can have arbitrary
     /// dimensions and their sizes can be specified at run-time (i.e., when executing your program).
     /// Below are a few examples showing some of these data structures and related APIs.
-
-    /*
-
+    
     /// ----------- fixed-size matrices
 
     /// define a 3 by 4 matrix M (you can also define 3 by 4 matrix similarly)
-    mat34 M(1.0f);  /// entries on the diagonal are initialized to be 1 and others to be 0.
+    mat34 M_(1.0f);  /// entries on the diagonal are initialized to be 1 and others to be 0.
 
     /// set the first row of M
-    M.set_row(0, vec4(1,1,1,1));    /// vec4 is a 4D vector.
+    M_.set_row(0, vec4(1,1,1,1));    /// vec4 is a 4D vector.
 
     /// set the second column of M
-    M.set_col(1, vec4(2,2,2,2));
+    M_.set_col(1, vec4(2,2,2,2));
 
     /// get the 3 rows of M
-    vec4 M1 = M.row(0);
-    vec4 M2 = M.row(1);
-    vec4 M3 = M.row(2);
+    vec4 M1_ = M_.row(0);
+    vec4 M2_ = M_.row(1);
+    vec4 M3_ = M_.row(2);
 
     /// ----------- fixed-size vectors
 
     /// how to quickly initialize a std::vector
-    std::vector<double> rows = {0, 1, 2, 3,
+    std::vector<double> rows_ = {0, 1, 2, 3,
                                 4, 5, 6, 7,
                                 8, 9, 10, 11};
     /// get the '2'-th row of M
-    const vec4 b = M.row(2);    // it assigns the requested row to a new vector b
+    const vec4 b_ = M_.row(2);    // it assigns the requested row to a new vector b
 
     /// get the '1'-th column of M
-    const vec3 c = M.col(1);    // it assigns the requested column to a new vector c
+    const vec3 c_ = M_.col(1);    // it assigns the requested column to a new vector c
 
     /// modify the element value at row 2 and column 1 (Note the 0-based indices)
-    M(2, 1) = b.x;
+    M_(2, 1) = b_.x;
 
     /// apply transformation M on a 3D point p (p is a 3D vector)
-    vec3 p(222, 444, 333);
-    vec3 proj = M * vec4(p, 1.0f);  // use the homogenous coordinates. result is a 3D vector
+    vec3 p_(222, 444, 333);
+    vec3 proj_ = M_ * vec4(p_, 1.0f);  // use the homogenous coordinates. result is a 3D vector
 
     /// the length of a vector
-    float len = p.length();
+    float len_ = p_.length();
     /// the squared length of a vector
-    float sqr_len = p.length2();
+    float sqr_len = p_.length2();
 
     /// the dot product of two vectors
-    float dot_prod = dot(p, proj);
+    float dot_prod_ = dot(p_, proj_);
 
     /// the cross product of two vectors
-    vec3 cross_prod = cross(p, proj);
+    vec3 cross_prod_ = cross(p_, proj_);
 
     /// normalize this vector
-    cross_prod.normalize();
+    cross_prod_.normalize();
 
     /// a 3 by 3 matrix (all entries are intentionally NOT initialized for efficiency reasons)
-    mat3 F;
+    mat3 F_;
     /// ... here you compute or initialize F.
     /// compute the inverse of K
-    mat3 invF = inverse(F);
+    mat3 invF_ = inverse(F_);
 
     /// ----------- dynamic-size matrices
 
     /// define a non-fixed size matrix
-    Matrix<double> W(2, 3, 0.0); // all entries initialized to 0.0.
+    Matrix<double> W_(2, 3, 0.0); // all entries initialized to 0.0.
 
     /// set its first row by a 3D vector (1.1, 2.2, 3.3)
-    W.set_row({ 1.1, 2.2, 3.3 }, 0);   // here "{ 1.1, 2.2, 3.3 }" is of type 'std::vector<double>'
+    W_.set_row({ 1.1, 2.2, 3.3 }, 0);   // here "{ 1.1, 2.2, 3.3 }" is of type 'std::vector<double>'
 
     /// get the last column of a matrix
-    std::vector<double> last_column = W.get_column(W.cols() - 1);
-     */
+    std::vector<double> last_column_ = W_.get_column(W_.cols() - 1);
+    
 
     // TODO: delete all above demo code in the final submission
 
@@ -376,5 +383,4 @@ bool Triangulation::triangulation(
     //          - function not implemented yet;
     //          - input not valid (e.g., not enough points, point numbers don't match);
     //          - encountered failure in any step.
-    return points_3d.size() > 0;
 }
