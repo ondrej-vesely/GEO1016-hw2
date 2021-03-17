@@ -100,9 +100,10 @@ void normalise(std::vector<vec3>&points, mat3 &ST){
 
 void generate_w(std::vector<vec3>& points_0n, std::vector<vec3>& points_1n, Matrix<float> &W){
     for (int i = 0; i < points_0n.size(); ++i) {
-        W.set_row({ points_0n[i][0] * points_1n[i][0], points_0n[i][1] * points_1n[i][0], points_1n[0],
+        W.set_row({ points_0n[i][0] * points_1n[i][0], points_0n[i][1] * points_1n[i][0], points_1n[i][0],
             points_0n[i][0] * points_1n[i][1], points_1n[i][1], points_0n[i][0], points_0n[i][1], 1 }, i);
     }
+    std::cout << "W matrix after " << W << std::endl;
 }
 
 
@@ -153,10 +154,13 @@ bool Triangulation::triangulation(
 
     // STEP 1.1 - LINEAR SOLUTION USING SVD (make the recovered F to scale, last element 1.0
 
-    // generate W matrix
+    // initialise W matrix
     Matrix<float> W(p_0n.size(), 9, 0.0);
+    std::cout << "W matrix before " << W << std::endl;
 
-    // call function generate_w here (which is void but´changes the values of W)
+    // call function generate_w here (which is void but changes the values of W)
+    //generate_w(p_0n, p_1n, W); 
+    std::cout << "W matrix after " << W << std::endl;
 
     
 
@@ -218,6 +222,8 @@ bool Triangulation::triangulation(
     /// In 'Triangulation/matrix.h', another templated 'Matrix' type is also provided. This type can have arbitrary
     /// dimensions and their sizes can be specified at run-time (i.e., when executing your program).
     /// Below are a few examples showing some of these data structures and related APIs.
+
+    /*
 
     /// ----------- fixed-size matrices
 
@@ -284,6 +290,7 @@ bool Triangulation::triangulation(
 
     /// get the last column of a matrix
     std::vector<double> last_column = W.get_column(W.cols() - 1);
+     */
 
     // TODO: delete all above demo code in the final submission
 
