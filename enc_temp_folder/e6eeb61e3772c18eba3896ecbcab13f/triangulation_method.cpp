@@ -1,4 +1,4 @@
-ï»¿/**
+/**
  * Copyright (C) 2015 by Liangliang Nan (liangliang.nan@gmail.com)
  * https://3d.bk.tudelft.nl/liangliang/
  *
@@ -54,7 +54,7 @@ Matrix<double> to_Matrix(const mat &M) {
     return result;
 }
 
-void normalise(std::vector<vec3>& points, mat3& ST) {
+void normalise(std::vector<vec3>&points, mat3 &ST){
 
     // find centroid coordinate
     float centroid_x, centroid_y;
@@ -68,7 +68,7 @@ void normalise(std::vector<vec3>& points, mat3& ST) {
     }
 
     centroid_x = centroid_x / points.size();
-    centroid_y = centroid_y / points.size();
+    centroid_y= centroid_y / points.size();
 
     // create translation matrix
     mat3 T(1.0f);
@@ -91,14 +91,14 @@ void normalise(std::vector<vec3>& points, mat3& ST) {
     mat3 S = mat3::scale(s, s, 1);
 
     ST = S * T;
-
+    
     // change input vector to its normalised version
     for (int i = 0; i < points.size(); ++i) {
         points[i] = ST * points[i];
     }
 }
 
-void generate_w(std::vector<vec3>& points_0n, std::vector<vec3>& points_1n, Matrix<double> &W){
+void generate_w(std::vector<vec3>& points_0n, std::vector<vec3>& points_1n, Matrix<float> &W){
     for (int i = 0; i < points_0n.size(); ++i) {
         W.set_row({ points_0n[i][0] * points_1n[i][0], points_0n[i][1] * points_1n[i][0], points_1n[i][0],
             points_0n[i][0] * points_1n[i][1], points_0n[i][1]*points_1n[i][1],
@@ -147,87 +147,31 @@ bool Triangulation::triangulation(
     normalise(p_0n, ST);
     normalise(p_1n, ST_prime);
 
-    //std::cout << "ST matrix after" << ST << std::endl;
-    //std::cout << "ST_prime matrix after" << ST_prime << std::endl;
+    std::cout << "ST matrix after" << ST << std::endl;
+    std::cout << "ST_prime matrix after" << ST_prime << std::endl;
 
-    //std::cout << "p_0n after" << p_0n << std::endl;
-    //std::cout << "p_1n after" << p_1n << std::endl;
+    std::cout << "p_0n after" << p_0n << std::endl;
+    std::cout << "p_1n after" << p_1n << std::endl;
 
     
-    // STEP 1.1 - LINEAR SOLUTION USING SVD
+    // STEP 1.1 - LINEAR SOLUTION USING SVD (make the recovered F to scale, last element 1.0
 
     // initialise W matrix
-    Matrix<double> W(p_0n.size(), 9, 0.0);
+    Matrix<float> W(p_0n.size(), 9, 0.0);
 
     // call function generate_w here (which is void but changes the values of W)
     generate_w(p_0n, p_1n, W); 
-    //std::cout << "W matrix after " << W << std::endl;
+    // std::cout << "W matrix after " << W << std::endl;
 
-    // decompose W with SVD
-    int m = W.rows();
-    int n = W.cols();   
-
-    Matrix<double> U_W(m, m, 0.0);
-    Matrix<double> S_W(m, n, 0.0);
-    Matrix<double> V_W(n, n, 0.0);
-    svd_decompose(W, U_W, S_W, V_W);
-
-    // initialise and fill F matrix (F is a 3x3 matrix)
-    Matrix<double> F(3, 3, 0.0);
-
-    int k = 0;
-    for (int i = 0; i < 3; i++) {
-        for (int j = 0; j < 3; j++) {
-            F(i, j) = V_W(k, 8);
-            k++;
-        }
-    }
-    std::cout << "F matrix " << F << std::endl;
+    
 
 
     // STEP 1.2 - CONSTRAINT ENFORCEMENT (Based on SVD, Find the closest rank-2 matrix)
 
-    // decompose F with SVD
-    Matrix<double> U_F(3, 3, 0.0);
-    Matrix<double> S_F(3, 3, 0.0);
-    Matrix<double> V_F(3, 3, 0.0);
-    svd_decompose(F, U_F, S_F, V_F);
-
-    //std::cout << "S_F matrix " << S_F << std::endl;
-
-    //Set S_F(2,2) = 0
-    S_F(2, 2) = 0;
-
-    //recompose constrained F with rank(F)=2
-    Matrix<double> F_const(3, 3, 0.0);
-
-    F_const = U_F * S_F * V_F.transpose();
-    std::cout << "constrained F matrix " << F_const << std::endl;
-    
-
     // STEP 1.3 - DENORMALIZATION
 
-    //Initialise F for denormalised coordinates
-    Matrix<double> F_den(3, 3, 0.0);
 
-    Matrix<double> new_ST_prime = to_Matrix(ST_prime);
-    Matrix<double> new_ST = to_Matrix(ST);
-
-    std::cout << "new_ST_prime " << new_ST_prime << std::endl;
-    std::cout << "new_ST " << new_ST << std::endl;
-
-
-    F_den = new_ST_prime.transpose() * F_const * new_ST;
-    std::cout << "nearly done denormalised F matrix " << F_den << std::endl;
-
-    for (int i = 0; i < 3; ++i) {
-        for (int j = 0; j < 3; ++j) {
-            F_den(i,j) = F_den(i,j)/F_den(2,2);
-        }
-    }
-
-    std::cout << "denormalised F matrix " << F_den << std::endl;
-
+    // ---------                   PART 2                      ------------
     // --------- RECOVER RELATIVE POSE (R and t) FROM MATRIX F ------------
 
     // STEP 2.0 - FIND THE 4 CANDIDATE RELATIVE POSES (based on SVD)
@@ -235,7 +179,7 @@ bool Triangulation::triangulation(
     // STEP 2.1 - DETERMINE THE CORRECT RELATIVE POSE
 
     // determinant (R) = 1.0 (within a tiny threshold due to floating-point precision)
-    // most (in theory it is 'all' but not in practice due to noise) estimated 3D points
+    // most (in theory it is ‘all’ but not in practice due to noise) estimated 3D points
     // are in front of the both cameras(i.e., z values w.r.t.camera is positive)
 
     // --------- DETERMINE THE 3D COORDINATES ------------
