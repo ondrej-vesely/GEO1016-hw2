@@ -204,28 +204,47 @@ bool Triangulation::triangulation(
         }
     }
 
+    // STEP 1.x - VERIFY --------------------------------------------
+    
+    /*
+    std::cout << "ST matrix after" << ST << std::endl;
+    std::cout << "ST_prime matrix after" << ST_prime << std::endl;
+    std::cout << "W matrix after " << W << std::endl;
+    std::cout << "F matrix " << F << std::endl;
+    std::cout << "S_F matrix " << S_F << std::endl;
+    std::cout << "constrained F matrix " << F_const << std::endl;
+    */
     std::cout << "denormalised F matrix " << F_den << std::endl;
 
 
 
     // --------- RECOVER RELATIVE POSE (R and t) FROM MATRIX F ------------
 
-    // STEP 2.0 - CALCULATE K/K` MATRIX -----------------------------------
+    // STEP 2.0 - CONSTRUCT K/K` MATRIX -----------------------------------
 
-    // Calculate Matrix with camera intrisic params
+    // K Matrix with camera intrisic params
     // float fx, float fy,                     /// input: the focal lengths (same for both cameras)
     // float cx, float cy,                     /// input: the principal point (same for both cameras)
 
+    mat3 K_(fx, 0,  cx,
+            0,  fy, cy,
+            0,  0,  1 );
+
+    Matrix<double> K = to_Matrix(K_);
 
     // STEP 2.1 - CALCULATE E MATRIX --------------------------------------
 
     // Essential matrix
     // E = K' * F * K
 
+    Matrix<double> E = K * F_den * K;
 
+    // STEP 2.2 - FIND THE 4 CANDIDATE RELATIVE POSES (based on SVD) ------
 
-
-    // STEP 2.x - FIND THE 4 CANDIDATE RELATIVE POSES (based on SVD) ------
+    Matrix<double> U_E(3, 3, 0.0);
+    Matrix<double> S_E(3, 3, 0.0);
+    Matrix<double> V_E(3, 3, 0.0);
+    svd_decompose(E, U_E, S_E, V_E);
 
     // STEP 2.x - DETERMINE THE CORRECT RELATIVE POSE ---------------------
 
