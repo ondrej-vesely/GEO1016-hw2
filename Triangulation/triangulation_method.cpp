@@ -40,6 +40,11 @@ mat3 to_mat3(Matrix<double>& M) {
     return result;
 }
 
+/// convert a 1 by 3 matrix of type 'Matrix<double>' to vec3
+vec3 to_vec3(Matrix<double>& M) {
+    vec3 result = vec3(M(0, 0), M(0, 1), M(0, 2));
+    return result;
+}
 
 /// convert M of type 'matN' (N can be any positive integer) to type 'Matrix<double>'
 template<typename mat>
@@ -136,22 +141,23 @@ Matrix<double> potential_Mprime(Matrix<double> K, Matrix<double> R, Matrix<doubl
     return M;
 }
 
-mat34 get_M_matrix(const mat3& R, const vec3& t) {
+mat34 get_M_matrix(const mat3& R, const vec3& t, const mat3& K) {
     mat34 M;
     M.set_col(0, R.col(0));
     M.set_col(1, R.col(1));
     M.set_col(2, R.col(2));
     M.set_col(3, t);
+    M = K * M;
 
     return M;
 }
 
 /// To determine how many points are in front of camera
 /// for given relative camera pose
-int points_in_front(const std::vector<vec3>& points_1, const mat3& R, const vec3& t)
+int points_in_front(const std::vector<vec3>& points_1, const mat3& R, const vec3& t, const mat3& K)
 {
     int found = 0;
-    mat34 M = get_M_matrix(R, t);
+    mat34 M = get_M_matrix(R, t, K);
 
     for (vec3 p3 : points_1) {
 
@@ -238,6 +244,7 @@ bool Triangulation::triangulation(
         }
     }
 
+
     // STEP 1.x - VERIFY --------------------------------------------
 
     /*
@@ -251,7 +258,7 @@ bool Triangulation::triangulation(
     std::cout << "denormalised F matrix " << F_den << std::endl;
 
 
-
+    // ------------------------ PART 2 ------------------------------------
     // --------- RECOVER RELATIVE POSE (R and t) FROM MATRIX F ------------
 
     // STEP 2.0 - CONSTRUCT K/K` MATRIX -----------------------------------
@@ -265,12 +272,14 @@ bool Triangulation::triangulation(
         0, 0, 1);
     Matrix<double> K = to_Matrix(K_);
 
+
     // STEP 2.1 - CALCULATE E MATRIX --------------------------------------
 
     // Essential matrix
     // E = K' * F * K
 
     Matrix<double> E = K.transpose() * F_const * K;
+
 
     // STEP 2.2 - FIND THE 4 CANDIDATE RELATIVE POSES (based on SVD) ------
 
@@ -300,27 +309,35 @@ bool Triangulation::triangulation(
         "Determinant R2: " << determinant(R2_) << " \n";
 
 
-    // STEP 2.x - DETERMINE THE CORRECT RELATIVE POSE ---------------------
+    // STEP 2.3 - DETERMINE THE CORRECT RELATIVE POSE ---------------------
 
     // convert to <mat> and <vec>
     const mat3 R1 = to_mat3(R1_);
     const mat3 R2 = to_mat3(R2_);
-    const vec3 t1 = vec3(t1_(0, 0), t1_(0, 1), t1_(0, 2));
-    const vec3 t2 = vec3(t2_(0, 0), t2_(0, 1), t2_(0, 2));
+    const vec3 t1 = to_vec3(t1_);
+    const vec3 t2 = to_vec3(t2_);
 
     // find pair with highest number of points in front of both cameras
     int max = 0;
     int some_result;
-    some_result = points_in_front(points_1, R1, t1);     if (some_result > max) { R = R1; t = t1; max = some_result; }
-    some_result = points_in_front(points_1, R1, t2);     if (some_result > max) { R = R1; t = t2; max = some_result; }
-    some_result = points_in_front(points_1, R2, t1);     if (some_result > max) { R = R2; t = t1; max = some_result; }
-    some_result = points_in_front(points_1, R2, t2);     if (some_result > max) { R = R2; t = t2; max = some_result; }
+    some_result = points_in_front(points_1, R1, t1, K_);     if (some_result > max) { R = R1; t = t1; max = some_result; }
+    some_result = points_in_front(points_1, R1, t2, K_);     if (some_result > max) { R = R1; t = t2; max = some_result; }
+    some_result = points_in_front(points_1, R2, t1, K_);     if (some_result > max) { R = R2; t = t1; max = some_result; }
+    some_result = points_in_front(points_1, R2, t2, K_);     if (some_result > max) { R = R2; t = t2; max = some_result; }
+
+    mat34 M = get_M_matrix(R, t, K_);
 
     // determinant (R) = 1.0 (within a tiny threshold due to floating-point precision)
     // most (in theory it is 'all' but not in practice due to noise) estimated 3D points
     // are in front of the both cameras(i.e., z values w.r.t.camera is positive)
 
+    std::cout << "\n"
+        "R: " << R << " \n"
+        "t: " << t << " \n"
+        "M matrix: " << M << " \n";
 
+
+    // ----------------- PART 3 --------------------------
     // --------- DETERMINE THE 3D COORDINATES ------------
 
     // STEP 3.0 - COMPUTE PROJECTION MATRIX FROM K, R and t
@@ -329,15 +346,7 @@ bool Triangulation::triangulation(
     // it only changes for the 2nd camera (M')
 
     // for M
-    Matrix<double> M_(3, 4, 0.0);
-    M_.load_identity();
-    Matrix<double> M = K * M_;
-    
-    //for M'
-    Matrix<double> M_prime_1 = potential_Mprime(K, R1_, t1_);
-    Matrix<double> M_prime_2 = potential_Mprime(K, R1_, t2_);
-    Matrix<double> M_prime_3 = potential_Mprime(K, R2_, t1_);
-    Matrix<double> M_prime_4 = potential_Mprime(K, R2_, t2_);
+    Matrix<double> M_ = to_Matrix(M);
 
 
     // STEP 3.1 - COMPUTE THE 3D POINT USING THE LINEAR METHOD (SVD)
