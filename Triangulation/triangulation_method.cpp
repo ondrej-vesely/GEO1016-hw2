@@ -126,6 +126,15 @@ Matrix<double> generate_f(std::vector<vec3>& points_0n, std::vector<vec3>& point
     return F;
 }
 
+Matrix<double> potential_Mprime(Matrix<double> K, Matrix<double> R, Matrix<double> t) {
+    Matrix<double> M_(3, 4, 0.0);
+    for (int i = 0; i < 3; ++i) {
+        M_.set_column(R.get_column(i), i);
+    }
+    M_.set_column(t.get_row(0), 3);
+    Matrix<double>M = K * M_;
+    return M;
+}
 
 /// To determine how many points are in front of camera
 /// for given relative camera pose
@@ -312,6 +321,23 @@ bool Triangulation::triangulation(
     // --------- DETERMINE THE 3D COORDINATES ------------
 
     // STEP 3.0 - COMPUTE PROJECTION MATRIX FROM K, R and t
+
+    //M for first camera will always be the same
+    // it only changes for the 2nd camera (M')
+
+    // for M
+    Matrix<double> M_(3, 4, 0.0);
+    M_.load_identity();
+    Matrix<double> M = K * M_;
+    
+    //for M'
+    Matrix<double> M_prime_1 = potential_Mprime(K, R1_, t1_);
+    Matrix<double> M_prime_2 = potential_Mprime(K, R1_, t2_);
+    Matrix<double> M_prime_3 = potential_Mprime(K, R2_, t1_);
+    Matrix<double> M_prime_4 = potential_Mprime(K, R2_, t2_);
+    
+
+
 
     // STEP 3.1 - COMPUTE THE 3D POINT USING THE LINEAR METHOD (SVD)
 
