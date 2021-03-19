@@ -136,20 +136,29 @@ Matrix<double> potential_Mprime(Matrix<double> K, Matrix<double> R, Matrix<doubl
     return M;
 }
 
+mat34 get_M_matrix(const mat3& R, const vec3& t) {
+    mat34 M;
+    M.set_col(0, R.col(0));
+    M.set_col(1, R.col(1));
+    M.set_col(2, R.col(2));
+    M.set_col(3, t);
+
+    return M;
+}
+
 /// To determine how many points are in front of camera
 /// for given relative camera pose
-int points_in_front(const std::vector<vec3>& points_0, const mat3& R, const vec3& t, int& result)
+int points_in_front(const std::vector<vec3>& points_1, const mat3& R, const vec3& t)
 {
     int found = 0;
-    for (vec3 pt : points_0) {
+    mat34 M = get_M_matrix(R, t);
 
-        // do some camera magic
-        // to get point into camera coordinate system
-        // and figure out if points Z coord in camera space is positive
+    for (vec3 p3 : points_1) {
 
-        if (pt[2] > 0) { found++; }
+        vec4 p4 = vec4{ p3[0], p3[1], p3[2], 1.0 };
+        vec4 p4_proj = M * p4;
+        if (p4_proj[2] > 0) { found++; }
     }
-    result = found;
     return found;
 }
 
@@ -261,7 +270,7 @@ bool Triangulation::triangulation(
     // Essential matrix
     // E = K' * F * K
 
-    Matrix<double> E = K * F_const * K;
+    Matrix<double> E = K.transpose() * F_const * K;
 
     // STEP 2.2 - FIND THE 4 CANDIDATE RELATIVE POSES (based on SVD) ------
 
@@ -301,28 +310,22 @@ bool Triangulation::triangulation(
 
     // find pair with highest number of points in front of both cameras
     int max = 0;
-    int last_result = 0;
-    if (points_in_front(points_0, R1, t1, last_result) > max) { R = R1; t = t1; max = last_result; }
-    if (points_in_front(points_0, R1, t2, last_result) > max) { R = R1; t = t2; max = last_result; }
-    if (points_in_front(points_0, R2, t1, last_result) > max) { R = R2; t = t1; max = last_result; }
-    if (points_in_front(points_0, R2, t2, last_result) > max) { R = R2; t = t2; max = last_result; }
-
-    // !!!!!!!!!!!
-    // THE METHOD TO COUNT THE POINTS IN FRONT OF CAMERA IS NOT PROPERLY IMPLEMENTED YET
-    // !!!!!!!!!!!
-
-
-
+    int some_result;
+    some_result = points_in_front(points_1, R1, t1);     if (some_result > max) { R = R1; t = t1; max = some_result; }
+    some_result = points_in_front(points_1, R1, t2);     if (some_result > max) { R = R1; t = t2; max = some_result; }
+    some_result = points_in_front(points_1, R2, t1);     if (some_result > max) { R = R2; t = t1; max = some_result; }
+    some_result = points_in_front(points_1, R2, t2);     if (some_result > max) { R = R2; t = t2; max = some_result; }
 
     // determinant (R) = 1.0 (within a tiny threshold due to floating-point precision)
     // most (in theory it is 'all' but not in practice due to noise) estimated 3D points
     // are in front of the both cameras(i.e., z values w.r.t.camera is positive)
 
+
     // --------- DETERMINE THE 3D COORDINATES ------------
 
     // STEP 3.0 - COMPUTE PROJECTION MATRIX FROM K, R and t
 
-    //M for first camera will always be the same
+    // M for first camera will always be the same
     // it only changes for the 2nd camera (M')
 
     // for M
@@ -335,8 +338,6 @@ bool Triangulation::triangulation(
     Matrix<double> M_prime_2 = potential_Mprime(K, R1_, t2_);
     Matrix<double> M_prime_3 = potential_Mprime(K, R2_, t1_);
     Matrix<double> M_prime_4 = potential_Mprime(K, R2_, t2_);
-    
-
 
 
     // STEP 3.1 - COMPUTE THE 3D POINT USING THE LINEAR METHOD (SVD)
