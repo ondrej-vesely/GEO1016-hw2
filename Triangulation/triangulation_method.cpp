@@ -332,9 +332,9 @@ bool Triangulation::triangulation(
     // are in front of the both cameras(i.e., z values w.r.t.camera is positive)
 
     std::cout << "\n"
-        "R: " << R << " \n"
-        "t: " << t << " \n"
-        "M matrix: " << M << " \n";
+        "R:\n " << R << " \n"
+        "t:\n " << t << " \n\n"
+        "M matrix: \n " << M << " \n";
 
 
     // ----------------- PART 3 --------------------------
