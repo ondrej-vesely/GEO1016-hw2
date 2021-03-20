@@ -84,9 +84,11 @@ void normalise(std::vector<vec3>& points, mat3& ST) {
 
     float dist = 0;
 
+    // this is distance to centroid
     for (int i = 0; i < points.size(); ++i) {
-        dist += points[i].length();
+        sqrt(pow(points[i][0] - centroid_x, 2) + pow(points[i][1] - centroid_y, 2));
     }
+  
     dist = dist / points.size();        // average distance
 
     // get scaling factor (dist * s = sqrt(2))
