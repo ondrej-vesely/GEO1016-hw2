@@ -168,6 +168,30 @@ int points_in_front(const std::vector<vec3>& points_1, const mat3& R, const vec3
     return found;
 }
 
+vec3 get_3d_coordinates(vec4 M1, vec4 M2, vec4 M3, vec4 M1p, vec4 M2p, vec4 M3p, vec3 p1, vec3 p2) {
+    mat4 A_(0.0);
+    A_.set_row(0, p1[0] * M3 - M1);
+    A_.set_row(1, p1[1] * M3 - M2);
+    A_.set_row(2, p2[0] * M3p - M1p);
+    A_.set_row(3, p1[1] * M3p - M2p);
+
+    Matrix<double>A = to_Matrix(A_);
+
+    Matrix<double> U_A(4, 4, 0.0);
+    Matrix<double> S_A(4, 4, 0.0);
+    Matrix<double> V_A(4, 4, 0.0);
+    svd_decompose(A, U_A, S_A, V_A);
+
+    std::vector<double> point_coord_h = V_A.get_column(3);
+
+    vec3 point_coord(0, 0, 0);
+    
+    for (int i = 0; i < 3; i++) {
+        point_coord[i] = point_coord_h[i] / point_coord_h[3];
+    }
+    
+    return point_coord;
+}
 
 /**
  * TODO: Finish this function for reconstructing 3D geometry from corresponding image points.
@@ -325,16 +349,14 @@ bool Triangulation::triangulation(
     some_result = points_in_front(points_1, R2, t1, K_);     if (some_result > max) { R = R2; t = t1; max = some_result; }
     some_result = points_in_front(points_1, R2, t2, K_);     if (some_result > max) { R = R2; t = t2; max = some_result; }
 
-    mat34 M = get_M_matrix(R, t, K_);
-
+    
     // determinant (R) = 1.0 (within a tiny threshold due to floating-point precision)
     // most (in theory it is 'all' but not in practice due to noise) estimated 3D points
     // are in front of the both cameras(i.e., z values w.r.t.camera is positive)
 
     std::cout << "\n"
         "R:\n " << R << " \n"
-        "t:\n " << t << " \n\n"
-        "M matrix: \n " << M << " \n";
+        "t:\n " << t << " \n\n";
 
 
     // ----------------- PART 3 --------------------------
@@ -342,23 +364,34 @@ bool Triangulation::triangulation(
 
     // STEP 3.0 - COMPUTE PROJECTION MATRIX FROM K, R and t
 
-    // M for first camera will always be the same
-    // it only changes for the 2nd camera (M')
-
-    // for M
-    Matrix<double> M_ = to_Matrix(M);
+    mat34 M_(1.0f);
+    mat34 M = K_ * M_;                      // M for first camera
+    mat34 M_prime = get_M_matrix(R, t, K_); // M' for second camera
 
 
     // STEP 3.1 - COMPUTE THE 3D POINT USING THE LINEAR METHOD (SVD)
+
+    vec4 M1 = M.row(0);
+    vec4 M2 = M.row(1);
+    vec4 M3 = M.row(2);
+
+    vec4 M1_prime = M_prime.row(0);
+    vec4 M2_prime = M_prime.row(1);
+    vec4 M3_prime = M_prime.row(2);
+
+    // vec3 x = get_3d_coordinates(M1, M2, M3, M1_prime, M2_prime, M3_prime, points_0[0], points_1[0]);
+
+    // see function get_3d_coordinates
+    // this function only works for 2 views 
 
     // OPTIONAL - NON-LINEAR LEAST-SQUARES REFINEMENT OF THE 3D POINT COMPUTED FROM THE LINEAR METHOD
 
     // STEP 3.2 - TRIANGULATE ALL CORRESPONDING IMAGE POINTS
 
-
-
-
-
+    
+    for (int i = 0; i < points_1.size(); ++i) {
+        points_3d.push_back(get_3d_coordinates(M1, M2, M3, M1_prime, M2_prime, M3_prime, points_0[i], points_1[i]));
+    }
 
     return points_3d.size() > 0;
 }
