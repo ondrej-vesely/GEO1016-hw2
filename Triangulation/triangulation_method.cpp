@@ -30,7 +30,7 @@ using namespace easy3d;
 
 
 
-/// convert a 3 by 3 matrix of type 'Matrix<double>' to mat3
+/// Convert a 3 by 3 matrix of type 'Matrix<double>' to mat3
 mat3 to_mat3(Matrix<double>& M) {
     mat3 result;
     for (int i = 0; i < 3; ++i) {
@@ -41,14 +41,14 @@ mat3 to_mat3(Matrix<double>& M) {
 }
 
 
-/// convert a 1 by 3 matrix of type 'Matrix<double>' to vec3
+/// Convert a 1 by 3 matrix of type 'Matrix<double>' to vec3
 vec3 to_vec3(Matrix<double>& M) {
     vec3 result = vec3(M(0, 0), M(0, 1), M(0, 2));
     return result;
 }
 
 
-/// convert M of type 'matN' (N can be any positive integer) to type 'Matrix<double>'
+/// Convert M of type 'matN' (N can be any positive integer) to type 'Matrix<double>'
 template<typename mat>
 Matrix<double> to_Matrix(const mat& M) {
     const int num_rows = M.num_rows();
@@ -75,11 +75,11 @@ void normalize(std::vector<vec3>& points, mat3& ST) {
     vec3 centroid{ sum_x / pt_count, sum_y / pt_count, 1 };
 
     // Calculate avg. distance
-    double sum_dist = 0;
+    float sum_dist = 0;
     for (int i = 0; i < pt_count; i++) {
         sum_dist += (points[i] - centroid).length();
     }
-    double avg_dist = sum_dist / pt_count;
+    float avg_dist = sum_dist / pt_count;
 
     // Get scaling factor (dist * s = sqrt(2))
     float s = sqrt(2) / avg_dist;
@@ -159,7 +159,7 @@ mat34 get_M_prime_matrix(const mat3& R, const vec3& t, const mat3& K) {
 
 
 // Triangulate 3D coordinates using both cameras M matrices
-vec3 triangulate_3d_coordinates(const mat34& M, const mat34& Mp, const vec3& p1, const vec3& p2) {
+vec3 triangulate(const mat34& M, const mat34& Mp, const vec3& p1, const vec3& p2) {
     
     vec4 M1 = M.row(0);
     vec4 M2 = M.row(1);
@@ -172,7 +172,7 @@ vec3 triangulate_3d_coordinates(const mat34& M, const mat34& Mp, const vec3& p1,
     A.set_row(0, p1.x * M3 - M1);
     A.set_row(1, p1.y * M3 - M2);
     A.set_row(2, p2.x * M3p - M1p);
-    A.set_row(3, p1.y * M3p - M2p);
+    A.set_row(3, p2.y * M3p - M2p);
 
     Matrix<double>A_ = to_Matrix(A);
     Matrix<double> U_A(4, 4, 0.0);
@@ -196,14 +196,14 @@ int points_in_front(const std::vector<vec3>& points_0, const std::vector<vec3>& 
     const mat3& R, const vec3& t, const mat3& K)
 {
     int found = 0;
-    mat34 Rt = get_Rt_matrix(R, t);
-    mat34 M = get_M_matrix(K);
-    mat34 M_prime = get_M_prime_matrix(R, t, K);
+    const mat34 Rt = get_Rt_matrix(R, t);
+    const mat34 M = get_M_matrix(K);
+    const mat34 M_prime = get_M_prime_matrix(R, t, K);
 
     for (int i = 0; i < points_0.size(); i++) {
         const vec3& p1 = points_0[i];
         const vec3& p2 = points_1[i];
-        const vec3 p3d = triangulate_3d_coordinates(M, M_prime, p1, p2);
+        const vec3 p3d = triangulate(M, M_prime, p1, p2);
         const vec4 p3d_h = vec4{ p3d.x, p3d.y, p3d.z, 1.0 };
        
         // First camera check
@@ -214,9 +214,11 @@ int points_in_front(const std::vector<vec3>& points_0, const std::vector<vec3>& 
     return found;
 }
 
+
+
 /**
- * TODO: Finish this function for reconstructing 3D geometry from corresponding image points.
- * @return True on success, otherwise false. On success, the reconstructed 3D points must be written to 'points_3d'.
+ * Function for reconstructing 3D geometry from corresponding image points.
+ * @return True on success, otherwise false.
  */
 bool Triangulation::triangulation(
     float fx, float fy,                     /// input: the focal lengths (same for both cameras)
@@ -289,7 +291,7 @@ bool Triangulation::triangulation(
     // K Matrix with camera intrisic params
     // float fx, float fy,                     /// input: the focal lengths (same for both cameras)
     // float cx, float cy,                     /// input: the principal point (same for both cameras)
-    mat3 K (fx, 0,  cx,
+    mat3 K (fx, 1,  cx,
             0,  fy, cy,
             0,  0,  1);
 
@@ -364,15 +366,10 @@ bool Triangulation::triangulation(
     const mat34 M_prime = get_M_prime_matrix(R, t, K);    // M' for second camera
 
 
-    // STEP 3.1 - COMPUTE THE 3D POINT USING THE LINEAR METHOD (SVD)
+    // STEP 3.2 - COMPUTE THE 3D POINT USING THE LINEAR METHOD (SVD)
 
-    // OPTIONAL - NON-LINEAR LEAST-SQUARES REFINEMENT OF THE 3D POINT COMPUTED FROM THE LINEAR METHOD
-
-
-    // STEP 3.2 - TRIANGULATE ALL CORRESPONDING IMAGE POINTS
-
-    for (int i = 0; i < points_1.size(); ++i) {
-        points_3d.push_back(triangulate_3d_coordinates(M, M_prime, points_0[i], points_1[i]));
+    for (int i = 0; i < points_0.size(); ++i) {
+        points_3d.push_back(triangulate(M, M_prime, points_0[i], points_1[i]));
     }
 
     return points_3d.size() > 0;
