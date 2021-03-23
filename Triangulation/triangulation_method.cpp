@@ -60,47 +60,35 @@ Matrix<double> to_Matrix(const mat& M) {
 }
 
 void normalize(std::vector<vec3>& points, mat3& ST) {
-
-    // find centroid coordinate
-    float centroid_x, centroid_y;
-
-    centroid_x = 0;
-    centroid_y = 0;
-
-    for (int i = 0; i < points.size(); ++i) {
-        centroid_x += points[i][0] / points[i][2];
-        centroid_y += points[i][1] / points[i][2];
+    
+    // Find centroid coordinates
+    int pt_count = points.size();
+    float sum_x = 0, sum_y = 0;
+    for (int i = 0; i < pt_count; ++i) {
+        sum_x += points[i].x;
+        sum_y += points[i].y;
     }
+    vec3 centroid{ sum_x / pt_count, sum_y / pt_count, 1 };
 
-    centroid_x = centroid_x / points.size();
-    centroid_y = centroid_y / points.size();
-
-    // create translation matrix
-    mat3 T(1.0f);
-    T.set_col(2, vec3(-centroid_x, -centroid_y, 1));
-
-    // find scaling factors
-    // get average distance of the points to the origin
-
-    float total_dist = 0;
-
-    // this is distance to centroid
-    for (int i = 0; i < points.size(); ++i) {
-        total_dist += sqrt(pow(points[i][0] - centroid_x, 2) + pow(points[i][1] - centroid_y, 2));
+    // Calculate avg. distance
+    double sum_dist = 0;
+    for (int i = 0; i < pt_count; i++) {
+        sum_dist += (points[i] - centroid).length();
     }
-  
-    int avg_dist = total_dist / points.size();        // average distance
+    double avg_dist = sum_dist / pt_count;
 
-    // get scaling factor (dist * s = sqrt(2))
+    // Get scaling factor (dist * s = sqrt(2))
     float s = sqrt(2) / avg_dist;
 
-    // Scaling Matrix S
-    mat3 S = mat3::scale(s, s, 1);
-
-    ST = S * T;
+    // Create scaling matrix
+    ST = mat3{
+        s,      0,      -s * centroid.x,
+        0,      s,      -s * centroid.y,
+        0,      0,              1
+    };
 
     // change input vector to its normalised version
-    for (int i = 0; i < points.size(); ++i) {
+    for (int i = 0; i < points.size(); i++) {
         points[i] = ST * points[i];
     }
 }
@@ -221,22 +209,19 @@ bool Triangulation::triangulation(
     // --------- ESTIMATION OF FUNDAMENTAL MATRIX F ------------
     // STEP 1.0 - NORMALIZATION
 
-    mat3 ST;               // for first camera - combined T and S for normalisation 
-    mat3 ST_prime;         // for second camera
-
-    std::vector<vec3> p_0n = points_0;
-    std::vector<vec3> p_1n = points_1;
-
-    // call normalise function defined above
+    mat3 ST;                                // normalization matrix for first camera
+    mat3 ST_prime;                          // normalization matrix for second camera
+    std::vector<vec3> p_0n = points_0;      // normalization points for first camera
+    std::vector<vec3> p_1n = points_1;      // normalization points for second camera
     normalize(p_0n, ST);
     normalize(p_1n, ST_prime);
 
 
     // STEP 1.1 - LINEAR SOLUTION USING SVD ---------------------
 
-    // call function to generate F matrix from input points
     Matrix<double> F = get_f_matrix(p_0n, p_1n);
     mat3 F_early = to_mat3(F);
+
 
     // STEP 1.2 - CONSTRAINT ENFORCEMENT (Based on SVD, Find the closest rank-2 matrix)
 
@@ -246,7 +231,6 @@ bool Triangulation::triangulation(
     Matrix<double> V_F(3, 3, 0.0);
     svd_decompose(F, U_F, S_F, V_F);
     
-
     //recompose constrained F with rank(F)=2
     S_F(2, 2) = 0;
     Matrix<double> F_const = U_F * S_F * transpose(V_F);
@@ -283,7 +267,7 @@ bool Triangulation::triangulation(
     // float fx, float fy,                     /// input: the focal lengths (same for both cameras)
     // float cx, float cy,                     /// input: the principal point (same for both cameras)
 
-    mat3 K_(fx, 1,  cx,
+    mat3 K_(fx, 0,  cx,
             0,  fy, cy,
             0,  0,  1);
     Matrix<double> K = to_Matrix(K_);
