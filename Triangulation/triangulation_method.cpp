@@ -59,7 +59,7 @@ Matrix<double> to_Matrix(const mat& M) {
     return result;
 }
 
-void normalise(std::vector<vec3>& points, mat3& ST) {
+void normalize(std::vector<vec3>& points, mat3& ST) {
 
     // find centroid coordinate
     float centroid_x, centroid_y;
@@ -105,14 +105,18 @@ void normalise(std::vector<vec3>& points, mat3& ST) {
     }
 }
 
-Matrix<double> generate_f(std::vector<vec3>& points_0n, std::vector<vec3>& points_1n) {
+// Generate F matrix from normalized point pairs
+Matrix<double> get_f_matrix(std::vector<vec3>& points_0n, std::vector<vec3>& points_1n) {
+    
+    // Generate W Matrix
     Matrix<double> W(points_0n.size(), 9, 0.0);
     for (int i = 0; i < points_0n.size(); ++i) {
         W.set_row({ points_0n[i][0] * points_1n[i][0], points_0n[i][1] * points_1n[i][0], points_1n[i][0],
                     points_0n[i][0] * points_1n[i][1], points_0n[i][1] * points_1n[i][1],
                     points_1n[i][1], points_0n[i][0], points_0n[i][1], 1 }, i);
     }
-    // decompose W with SVD
+
+    // Decompose W with SVD
     int m = W.rows();
     int n = W.cols();
     Matrix<double> U_W(m, m, 0.0);
@@ -120,7 +124,7 @@ Matrix<double> generate_f(std::vector<vec3>& points_0n, std::vector<vec3>& point
     Matrix<double> V_W(n, n, 0.0);
     svd_decompose(W, U_W, S_W, V_W);
 
-    // initialise and fill F matrix (F is a 3x3 matrix)
+    // Initialise and fill F matrix (F is a 3x3 matrix)
     Matrix<double> F(3, 3, 0.0);
 
     int k = 0;
@@ -133,16 +137,7 @@ Matrix<double> generate_f(std::vector<vec3>& points_0n, std::vector<vec3>& point
     return F;
 }
 
-Matrix<double> potential_Mprime(Matrix<double> K, Matrix<double> R, Matrix<double> t) {
-    Matrix<double> M_(3, 4, 0.0);
-    for (int i = 0; i < 3; ++i) {
-        M_.set_column(R.get_column(i), i);
-    }
-    M_.set_column(t.get_row(0), 3);
-    Matrix<double>M = K * M_;
-    return M;
-}
-
+// Generate M matrix from R, t and K matrices
 mat34 get_M_matrix(const mat3& R, const vec3& t, const mat3& K) {
     mat34 M;
     M.set_col(0, R.col(0));
@@ -226,21 +221,22 @@ bool Triangulation::triangulation(
     // --------- ESTIMATION OF FUNDAMENTAL MATRIX F ------------
     // STEP 1.0 - NORMALIZATION
 
-    mat3 ST(0.0);               // for first camera - combined T and S for normalisation 
-    mat3 ST_prime(0.0);         // for second camera
+    mat3 ST;               // for first camera - combined T and S for normalisation 
+    mat3 ST_prime;         // for second camera
 
     std::vector<vec3> p_0n = points_0;
     std::vector<vec3> p_1n = points_1;
 
     // call normalise function defined above
-    normalise(p_0n, ST);
-    normalise(p_1n, ST_prime);
+    normalize(p_0n, ST);
+    normalize(p_1n, ST_prime);
 
 
     // STEP 1.1 - LINEAR SOLUTION USING SVD ---------------------
 
     // call function to generate F matrix from input points
-    Matrix<double> F = generate_f(p_0n, p_1n);
+    Matrix<double> F = get_f_matrix(p_0n, p_1n);
+    mat3 F_early = to_mat3(F);
 
     // STEP 1.2 - CONSTRAINT ENFORCEMENT (Based on SVD, Find the closest rank-2 matrix)
 
@@ -249,12 +245,12 @@ bool Triangulation::triangulation(
     Matrix<double> S_F(3, 3, 0.0);
     Matrix<double> V_F(3, 3, 0.0);
     svd_decompose(F, U_F, S_F, V_F);
-    S_F(2, 2) = 0;
+    
 
     //recompose constrained F with rank(F)=2
-    Matrix<double> F_const(3, 3, 0.0);
-
-    F_const = U_F * S_F * V_F.transpose();
+    S_F(2, 2) = 0;
+    Matrix<double> F_const = U_F * S_F * transpose(V_F);
+    mat3 another_F = to_mat3(F_const);
 
 
     // STEP 1.3 - DENORMALIZATION -----------------------------------
@@ -262,13 +258,7 @@ bool Triangulation::triangulation(
     Matrix<double> ST_prime_double = to_Matrix(ST_prime);
     Matrix<double> ST_double = to_Matrix(ST);
     Matrix<double> F_den = ST_prime_double.transpose() * F_const * ST_double;
-
-    // divide every value by F_den(2,2) in order to eliminate scaling factor
-    for (int i = 0; i < 3; ++i) {
-        for (int j = 0; j < 3; ++j) {
-            F_den(i, j) = F_den(i, j) / F_den(2, 2);
-        }
-    }
+    mat3 F_ = to_mat3(F_den);
 
 
     // STEP 1.x - VERIFY --------------------------------------------
@@ -293,9 +283,9 @@ bool Triangulation::triangulation(
     // float fx, float fy,                     /// input: the focal lengths (same for both cameras)
     // float cx, float cy,                     /// input: the principal point (same for both cameras)
 
-    mat3 K_(fx, 0, cx,
-        0, fy, cy,
-        0, 0, 1);
+    mat3 K_(fx, 1,  cx,
+            0,  fy, cy,
+            0,  0,  1);
     Matrix<double> K = to_Matrix(K_);
 
 
@@ -304,7 +294,8 @@ bool Triangulation::triangulation(
     // Essential matrix
     // E = K' * F * K
 
-    Matrix<double> E = K.transpose() * F_const * K;
+    Matrix<double> E = K.transpose() * F_den * K;
+    mat3 E_ = to_mat3(E);
 
 
     // STEP 2.2 - FIND THE 4 CANDIDATE RELATIVE POSES (based on SVD) ------
