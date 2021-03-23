@@ -291,7 +291,7 @@ bool Triangulation::triangulation(
     // K Matrix with camera intrisic params
     // float fx, float fy,                     /// input: the focal lengths (same for both cameras)
     // float cx, float cy,                     /// input: the principal point (same for both cameras)
-    mat3 K (fx, 1,  cx,
+    mat3 K (fx, 0,  cx,
             0,  fy, cy,
             0,  0,  1);
 
