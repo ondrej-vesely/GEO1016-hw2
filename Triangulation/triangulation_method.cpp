@@ -82,17 +82,17 @@ void normalise(std::vector<vec3>& points, mat3& ST) {
     // find scaling factors
     // get average distance of the points to the origin
 
-    float dist = 0;
+    float total_dist = 0;
 
     // this is distance to centroid
     for (int i = 0; i < points.size(); ++i) {
-        sqrt(pow(points[i][0] - centroid_x, 2) + pow(points[i][1] - centroid_y, 2));
+        total_dist += sqrt(pow(points[i][0] - centroid_x, 2) + pow(points[i][1] - centroid_y, 2));
     }
   
-    dist = dist / points.size();        // average distance
+    int avg_dist = total_dist / points.size();        // average distance
 
     // get scaling factor (dist * s = sqrt(2))
-    float s = sqrt(2) / dist;
+    float s = sqrt(2) / avg_dist;
 
     // Scaling Matrix S
     mat3 S = mat3::scale(s, s, 1);
