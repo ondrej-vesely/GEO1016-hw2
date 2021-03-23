@@ -59,6 +59,7 @@ Matrix<double> to_Matrix(const mat& M) {
     return result;
 }
 
+// Normalize coordinates of a group of points
 void normalize(std::vector<vec3>& points, mat3& ST) {
     
     // Find centroid coordinates
@@ -94,14 +95,16 @@ void normalize(std::vector<vec3>& points, mat3& ST) {
 }
 
 // Generate F matrix from normalized point pairs
-Matrix<double> get_f_matrix(std::vector<vec3>& points_0n, std::vector<vec3>& points_1n) {
+mat3 get_F_matrix(std::vector<vec3>& points_0n, std::vector<vec3>& points_1n) {
     
     // Generate W Matrix
     Matrix<double> W(points_0n.size(), 9, 0.0);
     for (int i = 0; i < points_0n.size(); ++i) {
-        W.set_row({ points_0n[i][0] * points_1n[i][0], points_0n[i][1] * points_1n[i][0], points_1n[i][0],
-                    points_0n[i][0] * points_1n[i][1], points_0n[i][1] * points_1n[i][1],
-                    points_1n[i][1], points_0n[i][0], points_0n[i][1], 1 }, i);
+        double x1 = points_0n[i].x;
+        double x2 = points_1n[i].x;
+        double y1 = points_0n[i].y;
+        double y2 = points_1n[i].y;
+        W.set_row( { x1 * x2, y1 * x2, x2, x1 * y2, y1 * y2, y2, x1, y1, 1.0 }, i);
     }
 
     // Decompose W with SVD
@@ -113,7 +116,7 @@ Matrix<double> get_f_matrix(std::vector<vec3>& points_0n, std::vector<vec3>& poi
     svd_decompose(W, U_W, S_W, V_W);
 
     // Initialise and fill F matrix (F is a 3x3 matrix)
-    Matrix<double> F(3, 3, 0.0);
+    mat3 F;
 
     int k = 0;
     for (int i = 0; i < 3; i++) {
@@ -190,8 +193,9 @@ bool Triangulation::triangulation(
     std::vector<vec3>& points_3d,           /// output: reconstructed 3D points
     mat3& R,                                /// output: recovered rotation of 2nd camera (used for updating the viewer and visual inspection)
     vec3& t                                 /// output: recovered translation of 2nd camera (used for updating the viewer and visual inspection)
-) const
+)   const
 {
+
     // ---------   PART 0   ------------
     // --------- VALIDATION ------------
     // STEP 0.0 - CHECK IF INPUT POINTS ARE VALID
@@ -211,51 +215,37 @@ bool Triangulation::triangulation(
 
     mat3 ST;                                // normalization matrix for first camera
     mat3 ST_prime;                          // normalization matrix for second camera
-    std::vector<vec3> p_0n = points_0;      // normalization points for first camera
-    std::vector<vec3> p_1n = points_1;      // normalization points for second camera
+    std::vector<vec3> p_0n = points_0;      // normalized points for first camera
+    std::vector<vec3> p_1n = points_1;      // normalized points for second camera
     normalize(p_0n, ST);
     normalize(p_1n, ST_prime);
 
 
     // STEP 1.1 - LINEAR SOLUTION USING SVD ---------------------
 
-    Matrix<double> F = get_f_matrix(p_0n, p_1n);
-    mat3 F_early = to_mat3(F);
+    mat3 F = get_F_matrix(p_0n, p_1n);
 
 
     // STEP 1.2 - CONSTRAINT ENFORCEMENT (Based on SVD, Find the closest rank-2 matrix)
 
     // decompose F with SVD
+    Matrix<double> F_ = to_Matrix(F);
     Matrix<double> U_F(3, 3, 0.0);
     Matrix<double> S_F(3, 3, 0.0);
     Matrix<double> V_F(3, 3, 0.0);
-    svd_decompose(F, U_F, S_F, V_F);
+    svd_decompose(F_, U_F, S_F, V_F);
     
     //recompose constrained F with rank(F)=2
     S_F(2, 2) = 0;
-    Matrix<double> F_const = U_F * S_F * transpose(V_F);
-    mat3 another_F = to_mat3(F_const);
+    F_ = U_F * S_F * transpose(V_F);
+    F = to_mat3(F_);
 
 
     // STEP 1.3 - DENORMALIZATION -----------------------------------
 
-    Matrix<double> ST_prime_double = to_Matrix(ST_prime);
-    Matrix<double> ST_double = to_Matrix(ST);
-    Matrix<double> F_den = ST_prime_double.transpose() * F_const * ST_double;
-    mat3 F_ = to_mat3(F_den);
+    F = transpose(ST_prime) * F * ST;
 
-
-    // STEP 1.x - VERIFY --------------------------------------------
-
-    /*
-    std::cout << "ST matrix after" << ST << std::endl;
-    std::cout << "ST_prime matrix after" << ST_prime << std::endl;
-    std::cout << "W matrix after " << W << std::endl;
-    std::cout << "F matrix " << F << std::endl;
-    std::cout << "S_F matrix " << S_F << std::endl;
-    std::cout << "constrained F matrix " << F_const << std::endl;
-    */
-    std::cout << "denormalised F matrix " << F_den << std::endl;
+    std::cout << "denormalised F matrix \n" << F << "\n";
 
 
     // ------------------------ PART 2 ------------------------------------
@@ -266,41 +256,37 @@ bool Triangulation::triangulation(
     // K Matrix with camera intrisic params
     // float fx, float fy,                     /// input: the focal lengths (same for both cameras)
     // float cx, float cy,                     /// input: the principal point (same for both cameras)
-
-    mat3 K_(fx, 0,  cx,
+    mat3 K (fx, 0,  cx,
             0,  fy, cy,
             0,  0,  1);
-    Matrix<double> K = to_Matrix(K_);
-
 
     // STEP 2.1 - CALCULATE E MATRIX --------------------------------------
 
     // Essential matrix
     // E = K' * F * K
-
-    Matrix<double> E = K.transpose() * F_den * K;
-    mat3 E_ = to_mat3(E);
-
+    mat3 E = transpose(K) * F * K;
+    
 
     // STEP 2.2 - FIND THE 4 CANDIDATE RELATIVE POSES (based on SVD) ------
 
     // SVD decompositon of E
+    Matrix<double> E_ = to_Matrix(E);
     Matrix<double> U_E(3, 3, 0.0);
     Matrix<double> S_E(3, 3, 0.0);
     Matrix<double> V_E(3, 3, 0.0);
-    svd_decompose(E, U_E, S_E, V_E);
+    svd_decompose(E_, U_E, S_E, V_E);
 
-    // construct W matrix
-    mat3 W_(0, -1,  0,
+    // Construct W matrix
+    mat3 W (0, -1,  0,
             1,  0,  0,
             0,  0,  1);
-    Matrix<double> W = to_Matrix(W_);
+    Matrix<double> W_ = to_Matrix(W);
 
     // Calculate relative poses
     // R1 = (det U * W * Vt) * U * W * Vt
     // R2 = (det U * Wt * Vt) * U * Wt * Vt
-    Matrix<double> R1_ = determinant(U_E * W * V_E.transpose()) * U_E * W * V_E.transpose();
-    Matrix<double> R2_ = determinant(U_E * W.transpose() * V_E.transpose()) * U_E * W.transpose() * V_E.transpose();
+    Matrix<double> R1_ = determinant(U_E * W_ * V_E.transpose()) * U_E * W_ * V_E.transpose();
+    Matrix<double> R2_ = determinant(U_E * W_.transpose() * V_E.transpose()) * U_E * W_.transpose() * V_E.transpose();
     // t1,2 = +- U3
     Matrix<double> t1_(1, 3, U_E.get_column(2).data());
     Matrix<double> t2_ = t1_ * -1;
@@ -312,19 +298,19 @@ bool Triangulation::triangulation(
 
     // STEP 2.3 - DETERMINE THE CORRECT RELATIVE POSE ---------------------
 
-    // convert to <mat> and <vec>
+    // Convert to <mat> and <vec>
     const mat3 R1 = to_mat3(R1_);
     const mat3 R2 = to_mat3(R2_);
     const vec3 t1 = to_vec3(t1_);
     const vec3 t2 = to_vec3(t2_);
 
-    // find pair with highest number of points in front of both cameras
+    // Find pair with highest number of points in front of both cameras
     int max = 0;
     int some_result;
-    some_result = points_in_front(points_1, R1, t1, K_);     if (some_result > max) { R = R1; t = t1; max = some_result; }
-    some_result = points_in_front(points_1, R1, t2, K_);     if (some_result > max) { R = R1; t = t2; max = some_result; }
-    some_result = points_in_front(points_1, R2, t1, K_);     if (some_result > max) { R = R2; t = t1; max = some_result; }
-    some_result = points_in_front(points_1, R2, t2, K_);     if (some_result > max) { R = R2; t = t2; max = some_result; }
+    some_result = points_in_front(points_1, R1, t1, K);     if (some_result > max) { R = R1; t = t1; max = some_result; }
+    some_result = points_in_front(points_1, R1, t2, K);     if (some_result > max) { R = R1; t = t2; max = some_result; }
+    some_result = points_in_front(points_1, R2, t1, K);     if (some_result > max) { R = R2; t = t1; max = some_result; }
+    some_result = points_in_front(points_1, R2, t2, K);     if (some_result > max) { R = R2; t = t2; max = some_result; }
 
     
     // determinant (R) = 1.0 (within a tiny threshold due to floating-point precision)
@@ -341,9 +327,8 @@ bool Triangulation::triangulation(
 
     // STEP 3.0 - COMPUTE PROJECTION MATRIX FROM K, R and t
 
-    mat34 M_(1.0f);
-    mat34 M = K_ * M_;                      // M for first camera
-    mat34 M_prime = get_M_matrix(R, t, K_); // M' for second camera
+    mat34 M = K * mat34(1.0f);              // M for first camera
+    mat34 M_prime = get_M_matrix(R, t, K);  // M' for second camera
 
 
     // STEP 3.1 - COMPUTE THE 3D POINT USING THE LINEAR METHOD (SVD)
