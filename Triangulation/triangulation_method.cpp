@@ -26,8 +26,8 @@
 #include "matrix_algo.h"
 #include <easy3d/optimizer/optimizer_lm.h>
 
-
 using namespace easy3d;
+
 
 
 /// convert a 3 by 3 matrix of type 'Matrix<double>' to mat3
@@ -40,11 +40,13 @@ mat3 to_mat3(Matrix<double>& M) {
     return result;
 }
 
+
 /// convert a 1 by 3 matrix of type 'Matrix<double>' to vec3
 vec3 to_vec3(Matrix<double>& M) {
     vec3 result = vec3(M(0, 0), M(0, 1), M(0, 2));
     return result;
 }
+
 
 /// convert M of type 'matN' (N can be any positive integer) to type 'Matrix<double>'
 template<typename mat>
@@ -58,6 +60,7 @@ Matrix<double> to_Matrix(const mat& M) {
     }
     return result;
 }
+
 
 // Normalize coordinates of a group of points
 void normalize(std::vector<vec3>& points, mat3& ST) {
@@ -81,7 +84,7 @@ void normalize(std::vector<vec3>& points, mat3& ST) {
     // Get scaling factor (dist * s = sqrt(2))
     float s = sqrt(2) / avg_dist;
 
-    // Create scaling matrix
+    // Create ST matrix
     ST = mat3{
         s,      0,      -s * centroid.x,
         0,      s,      -s * centroid.y,
@@ -94,8 +97,9 @@ void normalize(std::vector<vec3>& points, mat3& ST) {
     }
 }
 
+
 // Generate F matrix from normalized point pairs
-mat3 get_F_matrix(std::vector<vec3>& points_0n, std::vector<vec3>& points_1n) {
+mat3 get_F_matrix(const std::vector<vec3>& points_0n, const std::vector<vec3>& points_1n) {
     
     // Generate W Matrix
     Matrix<double> W(points_0n.size(), 9, 0.0);
@@ -125,60 +129,89 @@ mat3 get_F_matrix(std::vector<vec3>& points_0n, std::vector<vec3>& points_1n) {
             k++;
         }
     }
+
     return F;
 }
 
-// Generate M matrix from R, t and K matrices
-mat34 get_M_matrix(const mat3& R, const vec3& t, const mat3& K) {
-    mat34 M;
-    M.set_col(0, R.col(0));
-    M.set_col(1, R.col(1));
-    M.set_col(2, R.col(2));
-    M.set_col(3, t);
-    M = K * M;
 
+// Generate M  matrix from K matrix
+mat34 get_M_matrix(const mat3& K) {
+    mat34 M = K * mat34(1.0f);
     return M;
 }
 
-/// To determine how many points are in front of camera
-/// for given relative camera pose
-int points_in_front(const std::vector<vec3>& points_1, const mat3& R, const vec3& t, const mat3& K)
-{
-    int found = 0;
-    mat34 M = get_M_matrix(R, t, K);
-
-    for (vec3 p3 : points_1) {
-
-        vec4 p4 = vec4{ p3[0], p3[1], p3[2], 1.0 };
-        vec4 p4_proj = M * p4;
-        if (p4_proj[2] > 0) { found++; }
-    }
-    return found;
+// Generate M prime matrix from R, t and K matrices
+mat34 get_Rt_matrix(const mat3& R, const vec3& t) {
+    mat34 Rt;
+    Rt.set_col(0, R.col(0));
+    Rt.set_col(1, R.col(1));
+    Rt.set_col(2, R.col(2));
+    Rt.set_col(3, t);
+    return Rt;
 }
 
-vec3 get_3d_coordinates(vec4 M1, vec4 M2, vec4 M3, vec4 M1p, vec4 M2p, vec4 M3p, vec3 p1, vec3 p2) {
-    mat4 A_(0.0);
-    A_.set_row(0, p1[0] * M3 - M1);
-    A_.set_row(1, p1[1] * M3 - M2);
-    A_.set_row(2, p2[0] * M3p - M1p);
-    A_.set_row(3, p1[1] * M3p - M2p);
+// Generate M prime matrix from R, t and K matrices
+mat34 get_M_prime_matrix(const mat3& R, const vec3& t, const mat3& K) {
+    mat34 Rt = get_Rt_matrix(R, t);
+    mat34 M = K * Rt;
+    return M;
+}
 
-    Matrix<double>A = to_Matrix(A_);
 
+// Triangulate 3D coordinates using both cameras M matrices
+vec3 triangulate_3d_coordinates(const mat34& M, const mat34& Mp, const vec3& p1, const vec3& p2) {
+    
+    vec4 M1 = M.row(0);
+    vec4 M2 = M.row(1);
+    vec4 M3 = M.row(2);
+    vec4 M1p = Mp.row(0);
+    vec4 M2p = Mp.row(1);
+    vec4 M3p = Mp.row(2);
+
+    mat4 A(0.0);
+    A.set_row(0, p1.x * M3 - M1);
+    A.set_row(1, p1.y * M3 - M2);
+    A.set_row(2, p2.x * M3p - M1p);
+    A.set_row(3, p1.y * M3p - M2p);
+
+    Matrix<double>A_ = to_Matrix(A);
     Matrix<double> U_A(4, 4, 0.0);
     Matrix<double> S_A(4, 4, 0.0);
     Matrix<double> V_A(4, 4, 0.0);
-    svd_decompose(A, U_A, S_A, V_A);
+    svd_decompose(A_, U_A, S_A, V_A);
 
     std::vector<double> point_coord_h = V_A.get_column(3);
 
-    vec3 point_coord(0, 0, 0);
-    
+    vec3 point_coord; 
     for (int i = 0; i < 3; i++) {
         point_coord[i] = point_coord_h[i] / point_coord_h[3];
     }
     
     return point_coord;
+}
+
+
+/// To determine how many points are in front of camera for given relative camera pose
+int points_in_front(const std::vector<vec3>& points_0, const std::vector<vec3>& points_1,
+    const mat3& R, const vec3& t, const mat3& K)
+{
+    int found = 0;
+    mat34 Rt = get_Rt_matrix(R, t);
+    mat34 M = get_M_matrix(K);
+    mat34 M_prime = get_M_prime_matrix(R, t, K);
+
+    for (int i = 0; i < points_0.size(); i++) {
+        const vec3& p1 = points_0[i];
+        const vec3& p2 = points_1[i];
+        const vec3 p3d = triangulate_3d_coordinates(M, M_prime, p1, p2);
+        const vec4 p3d_h = vec4{ p3d.x, p3d.y, p3d.z, 1.0 };
+       
+        // First camera check
+        if (p3d.z > 0) found++;
+        // Second camera check
+        if ((Rt * p3d_h).z > 0) found++;
+    }
+    return found;
 }
 
 /**
@@ -244,8 +277,8 @@ bool Triangulation::triangulation(
     // STEP 1.3 - DENORMALIZATION -----------------------------------
 
     F = transpose(ST_prime) * F * ST;
-
     std::cout << "denormalised F matrix \n" << F << "\n";
+
 
 
     // ------------------------ PART 2 ------------------------------------
@@ -307,12 +340,11 @@ bool Triangulation::triangulation(
     // Find pair with highest number of points in front of both cameras
     int max = 0;
     int some_result;
-    some_result = points_in_front(points_1, R1, t1, K);     if (some_result > max) { R = R1; t = t1; max = some_result; }
-    some_result = points_in_front(points_1, R1, t2, K);     if (some_result > max) { R = R1; t = t2; max = some_result; }
-    some_result = points_in_front(points_1, R2, t1, K);     if (some_result > max) { R = R2; t = t1; max = some_result; }
-    some_result = points_in_front(points_1, R2, t2, K);     if (some_result > max) { R = R2; t = t2; max = some_result; }
+    some_result = points_in_front(points_0, points_1, R1, t1, K);     if (some_result > max) { R = R1; t = t1; max = some_result; }
+    some_result = points_in_front(points_0, points_1, R1, t2, K);     if (some_result > max) { R = R1; t = t2; max = some_result; }
+    some_result = points_in_front(points_0, points_1, R2, t1, K);     if (some_result > max) { R = R2; t = t1; max = some_result; }
+    some_result = points_in_front(points_0, points_1, R2, t2, K);     if (some_result > max) { R = R2; t = t2; max = some_result; }
 
-    
     // determinant (R) = 1.0 (within a tiny threshold due to floating-point precision)
     // most (in theory it is 'all' but not in practice due to noise) estimated 3D points
     // are in front of the both cameras(i.e., z values w.r.t.camera is positive)
@@ -322,37 +354,25 @@ bool Triangulation::triangulation(
         "t:\n " << t << " \n\n";
 
 
+
     // ----------------- PART 3 --------------------------
     // --------- DETERMINE THE 3D COORDINATES ------------
 
     // STEP 3.0 - COMPUTE PROJECTION MATRIX FROM K, R and t
 
-    mat34 M = K * mat34(1.0f);              // M for first camera
-    mat34 M_prime = get_M_matrix(R, t, K);  // M' for second camera
+    const mat34 M = get_M_matrix(K);                      // M for first camera
+    const mat34 M_prime = get_M_prime_matrix(R, t, K);    // M' for second camera
 
 
     // STEP 3.1 - COMPUTE THE 3D POINT USING THE LINEAR METHOD (SVD)
 
-    vec4 M1 = M.row(0);
-    vec4 M2 = M.row(1);
-    vec4 M3 = M.row(2);
-
-    vec4 M1_prime = M_prime.row(0);
-    vec4 M2_prime = M_prime.row(1);
-    vec4 M3_prime = M_prime.row(2);
-
-    // vec3 x = get_3d_coordinates(M1, M2, M3, M1_prime, M2_prime, M3_prime, points_0[0], points_1[0]);
-
-    // see function get_3d_coordinates
-    // this function only works for 2 views 
-
     // OPTIONAL - NON-LINEAR LEAST-SQUARES REFINEMENT OF THE 3D POINT COMPUTED FROM THE LINEAR METHOD
+
 
     // STEP 3.2 - TRIANGULATE ALL CORRESPONDING IMAGE POINTS
 
-    
     for (int i = 0; i < points_1.size(); ++i) {
-        points_3d.push_back(get_3d_coordinates(M1, M2, M3, M1_prime, M2_prime, M3_prime, points_0[i], points_1[i]));
+        points_3d.push_back(triangulate_3d_coordinates(M, M_prime, points_0[i], points_1[i]));
     }
 
     return points_3d.size() > 0;
