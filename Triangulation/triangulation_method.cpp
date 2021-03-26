@@ -206,10 +206,8 @@ int points_in_front(const std::vector<vec3>& points_0, const std::vector<vec3>& 
         const vec3 p3d = triangulate(M, M_prime, p1, p2);
         const vec4 p3d_h = vec4{ p3d.x, p3d.y, p3d.z, 1.0 };
        
-        // First camera check
-        if (p3d.z > 0) found++;
-        // Second camera check
-        if ((Rt * p3d_h).z > 0) found++;
+        // Check for both cameras
+        if (p3d.z > 0 && (Rt * p3d_h).z > 0) found++;
     }
     return found;
 }
